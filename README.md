@@ -1,5 +1,4 @@
-# Nexus Distributed File Storage System - Phase 2
-**Author:** Basant Awad
+# Nexus Distributed File Storage System 
 **Services Included:** File Quota Service, Presigned URL Service
 
 ## Architecture Overview
