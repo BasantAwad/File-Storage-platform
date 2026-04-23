@@ -1,0 +1,493 @@
+Distributed Systems project specification.
+1. Project Objective
+Students will design and implement a distributed, production-style file storage platform composed of 40 independent microservices.
+The system simulates:
+Chunk-based distributed storage
+Replication and re-replication
+Failure detection and recovery
+Distributed metadata coordination
+Observability
+Configuration management
+Chaos engineering
+CI/CD automation
+Kubernetes orchestration
+Workflow automation using n8n (bonus)
+The final system must behave like a simplified cloud object storage system.
+2. Global Technical Rules
+Each service MUST:
+Be fully independent
+Own its database (no shared DB)
+Communicate via REST (synchronous) and Apache Kafka (asynchronous event streaming)
+Expose:
+GET /health
+GET /ready
+Follow standard JSON response format
+Be containerized
+Have Kubernetes deployment files
+Be deployed with replicas = 2
+Include tests
+Include API documentation
+2.1 Service Design Deliverables
+For EVERY microservice, you must submit a short design package that includes:
+• Data Ownership:     Database schema, indexes, constraints, and the data lifecycle managed by the service (ERD).
+Architecture Diagram (Event Driven): A diagram showing where the service fits within the overall system architecture and how it interacts with other services.
+ Sequence Diagram: for each microservices illustrating the main workflow of the service
+Collaboration Diagram:A diagram showing how system components collaborate and exchange messages to accomplish a specific task.
+High-Level Block Diagram:A high-level diagram that illustrates the main system components and their relationships
+Deployment Diagram:A diagram illustrating how services are deployed in the system infrastructure (containers, nodes, servers, or cloud components).
+Each diagram must include at least two references notation to real-world systems or architectures (e.g., AWS, Google Cloud, Netflix) that implement similar architectural patterns.
+2.2 Service Communication Classification
+Every service is classified into one of three communication patterns based on the following decision rule: 
+(1) If a user or external system calls the service and waits for an immediate answer, and no other service needs to react to the result — use Pure REST. 
+(2) If a user calls the service and waits for an answer, AND other services must react to what happened — use Hybrid REST + Kafka.
+ (3) If no user calls the service directly and it only reacts to events from other services — use Pure Kafka Consumer.
+Summary — All 40 Services
+Pattern
+Count
+Services
+Rule
+Pure REST Only
+7
+#6 #9 #10 #14 #15 #33 #36
+Client waits, nothing else reacts
+Hybrid REST + Kafka
+27
+#1 #2 #3 #5 #7 #8 #11 #12 #13 #16 #17 #18 #19 #22 #23 #24 #27 #30 #31 #32 #34 #35 #37 #38 #39 #40
+Client waits AND others must react
+Pure Kafka Consumer
+6
+#20 #21 #25 #26 #28 #29
+No direct caller — reacts to events only
+TOTAL
+40
+All microservices accounted for
+Category 1 — Pure REST Only (7 Services)
+These services respond synchronously and no other service needs to react to their result. Adding Kafka would bring zero benefit.
+#
+Service
+Why Pure REST Only
+6
+Rate Limit
+Real-time enforcement — must block or allow the request instantly. By the time a Kafka event is published and consumed, the request has already passed. Adding Kafka adds latency with zero benefit.
+9
+Chunk Catalog
+Upload Session already publishes upload.completed which carries all chunk IDs. Publishing a separate Kafka event per chunk would create thousands of messages per upload with no additional consumers.
+10
+Chunk Location
+Location tracking is a lookup and update operation. Replication events already handle location changes downstream. No other service needs to react to a location registration in real time.
+14
+Tagging
+Tag operations are low-importance metadata changes. Search Index already re-indexes on upload.completed. No service reacts meaningfully to tag changes in real time.
+15
+Comments
+Pure user-facing CRUD. No other service reacts to a new comment. Audit logging can be done via a direct lightweight REST call at negligible cost.
+33
+Secrets Broker
+SECURITY CONSTRAINT — publishing secrets or secret-related events to Kafka is a security risk. Kafka is not encrypted by default. Secrets must stay in private synchronous channels only.
+36
+Presigned URL
+URL generation is a pure synchronous operation. The URL itself is the response — client needs it immediately to start uploading or downloading. Nothing else reacts to URL creation.
+Category 2 — Hybrid REST + Kafka  (27 Services)
+These services respond to REST calls immediately AND publish a Kafka event after the response. The client never waits for downstream consumers. If a consumer is down, Kafka holds the message until recovery.
+#
+Service
+REST does
+Kafka topic
+Why Hybrid
+1
+Auth Service
+Issues JWT token
+user.registered
+Profile creation and role assignment happen in background — login must not wait for them
+2
+User Profile
+Updates profile data
+profile.updated
+Audit Log and Analytics must track every profile change as a state change event
+3
+Roles Service
+Creates / assigns role
+user.role.assigned
+Permissions Service must load permissions for the new role in background
+5
+API Keys
+Issues or revokes key
+apikey.revoked
+Critical security event — all services that cached the key must invalidate it immediately
+7
+File Registry
+Confirms file deletion
+file.deleted
+Garbage Collector and Search Index must remove physical chunks and search entries
+8
+Upload Session
+Confirms upload complete
+upload.completed
+Triggers 5 consumers in parallel (Replication, Integrity, Notification, Search, Analytics) — none must block user response
+11
+Download Orchestrator
+Returns download plan
+file.downloaded
+Every download is a billable trackable event — Access Analytics and Audit Log must record it
+12
+File Sharing
+Returns share token
+file.shared
+Notification must email recipient and Analytics must log the share event in background
+13
+Versioning
+Creates file version
+version.created
+Audit Log must track every version creation as a system state change
+16
+Search Index
+Returns search results (REST) + consumes events (Kafka)
+indexes via upload.completed / file.deleted
+Indexing is triggered by system events, not by users calling index directly
+17
+Node Registry
+Confirms node registered
+node.registered
+Health monitoring must be aware of every new node that joins the cluster
+18
+Node Health
+Accepts heartbeat
+node.heartbeat.missed
+Failure detection triggers Replication Planner and Notification without blocking normal heartbeat acceptance
+19
+Storage Gateway
+Stores or retrieves chunk
+chunk.stored
+Integrity Checker should verify the chunk immediately after every physical write to catch corruption at source
+22
+Rebalance Service
+Accepts trigger command
+rebalance.started
+Central Logging and Metrics must track every rebalance operation for observability
+23
+Garbage Collector
+Accepts run, returns stats
+gc.completed
+Central Logging, Metrics, and Webhook must be notified when GC finishes to update dashboards
+24
+Integrity Checker
+Returns pass or fail
+integrity.failed (on failure only)
+Replication Planner must immediately create a re-replication task for any corrupted chunk
+27
+Metrics
+Records metric value
+metrics.threshold.exceeded (on breach only)
+Notification and Webhook must alert the ops team when any metric goes critical
+30
+Scheduler
+Creates and manages cron jobs
+Configured topic per job
+Scheduled jobs trigger downstream work in other services without direct REST calls
+31
+Config Service
+Saves new config value
+config.updated
+ALL 40 services must hot-reload configuration without restarting when a value changes
+32
+Feature Flags
+Updates flag enabled/disabled
+flag.updated
+Same as Config Service — all services must receive flag changes immediately without restart
+34
+Chaos Simulator
+Activates chaos rule
+chaos.rule.activated
+Central Logging, Metrics, and Notification must record and alert on every chaos injection
+35
+File Quota
+Checks and updates quota
+quota.exceeded
+Notification must alert user and Upload Session must be blocked when storage limit is reached
+37
+File Preview
+Returns { status: processing, preview_id }
+preview.requested
+Preview generation takes 3-15 seconds — blocking client is unacceptable. Pattern used by Google Drive and Dropbox
+38
+Data Compression
+Small files: sync / Large files: { status: queued }
+compression.requested (large files only)
+Threshold pattern — small files sync, large files async worker. Same as AWS S3 multipart
+39
+Access Analytics
+Returns analytics reports (REST) + consumes events (Kafka)
+Consumes: file.downloaded, file.shared, upload.completed
+Analytics data is built by consuming system events, not by users pushing data manually
+40
+Backup Service
+Triggers backup, returns history
+backup.completed
+Notification, Webhook, and Audit Log must be informed when backup finishes or fails
+Category 3 — Pure Kafka Consumer  (6 Services)
+No user-facing REST endpoint triggers their core work. They run permanently as background workers. If they go down, Kafka holds all messages and they catch up automatically on restart.
+#
+Service
+Consumer Group
+Listens to
+Why Pure Kafka
+20
+Replication Planner
+replication-planner-group
+upload.completed node.heartbeat.missed integrity.failed
+No user ever calls 'start replication' directly. Only reacts to system events. Then publishes replication.task.created for each task. DLQ: replication.task.created.DLQ
+21
+Replication Worker
+replication-worker-group
+replication.task.created
+Pure background infrastructure work. Reads chunk from source node, writes to target, updates chunk_locations, publishes replication.completed. Max 3 retries then DLQ.
+25
+Audit Log
+audit-log-group
+audit.event (ALL 40 services publish this)
+Audit logging must add ZERO latency to any service. If done via REST every service would wait for Audit Log before continuing — unacceptable.
+26
+Central Logging
+central-logging-group
+audit.event gc.completed chaos.rule.activated
+Aggregates logs from all 40 services without any service knowing or caring who receives the log. Decoupled by design.
+28
+Notification
+notification-group
+upload.completed replication.completed quota.exceeded backup.completed
+Notifications are always a side effect of something else. No user calls 'send notification' directly. If email server is down Kafka holds messages until recovery.
+29
+Webhook
+webhook-group
+gc.completed metrics.threshold.exceeded notification.sent backup.completed
+Bridge between internal Kafka events and external third-party systems. Looks up registered URLs, sends HTTP POST, records delivery result.
+3. Standard Response Format
+Success:
+{
+  "success": true,
+  "data": {},
+  "meta": {
+    "service": "service-name",
+    "request_id": "uuid"
+  }
+}
+Error:
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Description",
+    "details": {}
+  },
+  "meta": {
+    "service": "service-name",
+    "request_id": "uuid"
+  }
+}
+4. System Domains
+Identity & Access
+File & Metadata
+Storage & Replication
+Observability & Operations
+Configuration & Resilience
+5. FULL MICROservice SPECIFICATIONS
+Below each service includes:
+Responsibility
+Key Endpoints
+Example Input
+Example Output
+Database Schema
+Integrations
+IDENTITY DOMAIN (1–6)
+1. Auth Service
+Responsibility:User registration, login, token issuance.
+Endpoints:POST /auth/registerPOST /auth/loginPOST /auth/refresh
+Input (register):
+{ "name":"Ali","email":"a@mail.com","password":"Strong123" }
+Output:
+{ "user_id":1,"token":"jwt_token" }
+Database:users(id PK, name, email UNIQUE, password_hash, created_at)refresh_tokens(id PK, user_id, token_hash, expires_at)
+Integrates:User Profile, Roles
+2. User Profile Service
+GET /profiles/{id}PUT /profiles/{id}
+Database:profiles(user_id PK, phone, city, bio)
+Integrates:Auth
+3. Roles Service
+POST /rolesPOST /roles/{id}/assignGET /users/{id}/roles
+Database:roles(id PK, name UNIQUE)user_roles(user_id, role_id UNIQUE)
+Integrates:Permissions
+4. Permissions Service
+POST /permissionsPOST /roles/{id}/attach
+Database:permissions(id PK, name UNIQUE)role_permissions(role_id, permission_id UNIQUE)
+5. API Keys Service
+POST /keysPOST /keys/verifyPOST /keys/{id}/revoke
+Database:api_keys(id PK, owner, key_hash, scopes_json, expires_at, revoked_at)
+Integrates:All services
+6. Rate Limit Service
+POST /ratelimit/check
+Database:rate_limits(identity PK, limit_per_minute)rate_counters(identity, window_start, count)
+Integrates:All public endpoints
+FILE DOMAIN (7–16)
+7. File Registry
+POST /filesGET /files/{id}DELETE /files/{id}
+Database:files(id PK, owner_id, filename, size, status)
+Integrates:Chunk Catalog, Versioning
+8. Upload Session
+POST /uploads/startPOST /uploads/{id}/finish
+Database:upload_sessions(id PK, file_id, status, expires_at)
+Integrates:File Registry, Chunk Catalog
+9. Chunk Catalog
+POST /chunksGET /chunks?file_id=
+Database:chunks(id PK, file_id, chunk_no UNIQUE per file, hash, size)
+10. Chunk Location
+POST /chunk-locationsGET /chunks/{id}/replicas
+Database:chunk_locations(id PK, chunk_id, node_id UNIQUE)
+Integrates:Node Registry
+11. Download Orchestrator
+GET /downloads/{file_id}/plan
+Stateless or optional cache.
+Integrates:Chunk Catalog, Chunk Location
+12. File Sharing
+POST /sharesGET /shares/{token}
+Database:shares(id PK, file_id, token UNIQUE, expires_at)
+13. Versioning
+POST /versionsGET /versions?file_id=
+Database:file_versions(id PK, file_id, version_no UNIQUE per file)
+14. Tagging
+POST /tagsPOST /files/{id}/tags
+Database:tags(id PK, name UNIQUE)file_tags(file_id, tag_id UNIQUE)
+15. Comments
+POST /commentsGET /comments?file_id=
+Database:comments(id PK, file_id, user_id, text)
+16. Search Index
+POST /indexGET /search?q=
+Database:search_index(file_id PK, content FULLTEXT)
+STORAGE DOMAIN (17–24)
+17. Node Registry
+POST /nodes/registerPOST /nodes/{id}/heartbeat
+Database:nodes(id PK, name, base_url, last_seen, status)
+18. Node Health
+POST /node-health/report
+Database:node_health(id PK, node_id, cpu, mem, disk, reported_at)
+19. Storage Gateway
+PUT /objects/{chunk_id}GET /objects/{chunk_id}
+Database:objects(chunk_id PK, path, size, hash)
+20. Replication Planner
+POST /replication/plan
+Database:replication_policies(id PK, default_factor)
+21. Replication Worker
+POST /replication/tasks
+Database:replication_tasks(id PK, chunk_id, status, attempts)
+22. Rebalance Service
+POST /rebalance/run
+Database:rebalance_runs(id PK, status)
+23. Garbage Collector
+POST /gc/run
+Database:gc_runs(id PK, deleted_count)
+24. Integrity Checker
+POST /integrity/check
+Database:integrity_runs(id PK, file_id, ok_count, failed_count)
+OBSERVABILITY DOMAIN (25–30)
+25. Audit Log
+POST /auditGET /audit?filters
+Database:audit_logs(id PK, actor, action, entity, created_at)
+26. Central Logging
+POST /logs
+Database:logs(id PK, service, level, message, created_at)
+27. Metrics
+POST /metrics
+Database:metrics(id PK, service, name, value, recorded_at)
+28. Notification
+POST /notify/email
+Database:notifications(id PK, type, to_address, status)
+29. Webhook
+POST /webhooksPOST /events/publish
+Database:webhooks(id PK, url)deliveries(id PK, webhook_id, status)
+30. Scheduler
+POST /jobs
+Database:jobs(id PK, cron, target_json, enabled)
+CONFIGURATION & RESILIENCE (31–34)
+31. Config Service
+PUT /config/{service}
+Database:configs(service, key UNIQUE per service, value)
+32. Feature Flags
+POST /flags
+Database:feature_flags(id PK, service, name UNIQUE per service, enabled)
+33. Secrets Broker
+POST /secrets/issue
+Database:issued_secrets(id PK, service, secret_hash, expires_at)
+34. Chaos Simulator
+POST /chaos/latencyPOST /chaos/error-rate
+Database:chaos_rules(id PK, service, type, enabled)
+FILE UTILITIES DOMAIN (35–40)
+35. File Quota Service
+Responsibility:Manage per-user storage quota and validate uploads against remaining space.
+Endpoints:GET /quota/{user_id}POST /quota/checkPOST /quota/update
+Database:quotas(user_id PK, max_storage, used_storage)
+Integrates:File Registry, Upload Session
+36. Presigned URL Service
+Responsibility:Generate temporary presigned URLs for secure upload/download.
+Endpoints:POST /urls/uploadPOST /urls/download
+Database:presigned_urls(id PK, file_id, url, expires_at)
+Integrates:Auth, File Registry, Storage Gateway
+37. File Preview Service
+Responsibility:Generate file previews (PDF/image) for fast viewing without full download.
+Endpoints:POST /preview/generateGET /preview/{file_id}
+Database:previews(file_id PK, preview_path, created_at)
+Integrates:File Registry, Storage Gateway
+38. Data Compression Service
+Responsibility:Compress files/chunks before storage to reduce space; support decompression on demand.
+Endpoints:POST /compressPOST /decompress
+Database:compression_jobs(id PK, file_id, ratio, status)
+Integrates:Upload Session, Storage Gateway
+39. Access Analytics Service
+Responsibility:Track and analyze file access events (download/share/preview) for usage insights.
+Endpoints:POST /access/logGET /analytics/file/{id}
+Database:file_access_logs(id PK, file_id, user_id, action, created_at)
+Integrates:Download Orchestrator, File Sharing
+40. Backup Service
+Responsibility:Create snapshot backups for metadata (registry/catalog/config) and expose history.
+Endpoints:POST /backup/runGET /backup/history
+Database:backup_runs(id PK, status, started_at, finished_at)
+Integrates:File Registry, Chunk Catalog, Config Service
+6. Student Distribution
+Student 1: Auth + User ProfileStudent 2: Roles + PermissionsStudent 3: API Keys + Rate LimitStudent 4: File Registry + Upload SessionStudent 5: Chunk Catalog + Chunk LocationStudent 6: Download Orchestrator + File SharingStudent 7: Versioning + TaggingStudent 8: Comments + Search IndexStudent 9: Node Registry + Node HealthStudent 10: Storage Gateway + Replication PlannerStudent 11: Replication Worker + RebalanceStudent 12: Garbage Collector + Integrity CheckerStudent 13: Audit Log + Central LoggingStudent 14: Metrics + NotificationStudent 15: Webhook + SchedulerStudent 16: Config Service + Feature FlagsStudent 17: Secrets Broker + Chaos SimulatorStudent 18: File Quota + Presigned URLStudent 19: File Preview + CompressionStudent 20: Access Analytics + Backup
+7. Full CI/CD Pipeline
+Stages:
+Lint
+Unit Tests
+Integration Tests
+Docker Build
+Push to GHCR
+Deploy to K8s Staging
+Smoke Test
+Tag Release
+Rollback required.
+8. Kubernetes Requirements
+Each service must include:
+deployment.yaml (replicas: 2)
+service.yaml (ClusterIP)
+configmap.yaml
+secret.yaml
+Must demonstrate:
+Auto restart
+Readiness failure blocks traffic
+Horizontal scaling
+9. Bonus: n8n Automation (Optional + Extra Credit)
+Bonus (extra credit): Deploy n8n in the cluster and implement workflows (optional):
+Workflow 1:User Registered → Create Profile → Assign Role
+Workflow 2:Upload Finished → Integrity Check → Notify User
+Workflow 3:Node Down → Trigger Replication → Log + Notify
+Workflow 4:Scheduled GC → Log Summary → Send Webhook
+Workflow 5:Chaos Rule Activated → Alert Observability
+10. Final Demonstration
+Students must show:
+File upload
+Chunk distribution
+Node failure
+Auto re-replication
+Metrics spike
+Chaos injection
+n8n workflow execution
+CI pipeline run
+Kubernetes scaling

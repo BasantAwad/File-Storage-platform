@@ -6,13 +6,17 @@ const urlRoutes = require('./routes/url.routes');
 const app = express();
 app.use(express.json());
 
-// Basic health check
+// Standard endpoints
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP', service: 'presigned-url' });
 });
 
+app.get('/ready', (req, res) => {
+  res.status(200).json({ status: 'READY', service: 'presigned-url' });
+});
+
 // App routes
-app.use('/url', urlRoutes);
+app.use('/urls', urlRoutes);
 
 const PORT = process.env.PORT || 3002;
 

@@ -1,15 +1,16 @@
 const quotaRepo = require('../repositories/quota.repository');
 const { publishQuotaExceeded } = require('../config/kafka');
 
-async function verifyAndReserve(userId, newFileSize) {
+async function getQuota(userId) {
   let quota = await quotaRepo.getQuotaByUserId(userId);
-  
   if (!quota) {
-    // For demo purposes, create default quota if none exists.
-    // In reality, User/Auth service would initialize this on user creation.
     quota = await quotaRepo.createQuota(userId, 5368709120); // 5GB default
   }
+  return quota;
+}
 
+async function checkQuota(userId, newFileSize) {
+  const quota = await getQuota(userId);
   const projectedUsage = Number(quota.used_storage) + Number(newFileSize);
 
   if (projectedUsage > Number(quota.max_storage)) {
@@ -23,16 +24,29 @@ async function verifyAndReserve(userId, newFileSize) {
     };
   }
 
-  // Update used storage
-  await quotaRepo.updateUsedStorage(userId, projectedUsage);
-
   return {
     allowed: true,
-    current_used: projectedUsage,
+    current_used: quota.used_storage,
     max_storage: quota.max_storage
   };
 }
 
+async function updateQuota(userId, usedStorage) {
+  let quota = await quotaRepo.getQuotaByUserId(userId);
+  if (!quota) {
+    quota = await quotaRepo.createQuota(userId, 5368709120);
+  }
+  
+  const updatedQuota = await quotaRepo.updateUsedStorage(userId, usedStorage);
+  return {
+    user_id: userId,
+    used_storage: updatedQuota.used_storage,
+    max_storage: updatedQuota.max_storage
+  };
+}
+
 module.exports = {
-  verifyAndReserve
+  getQuota,
+  checkQuota,
+  updateQuota
 };

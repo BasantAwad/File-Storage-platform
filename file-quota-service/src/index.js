@@ -7,9 +7,13 @@ const quotaRoutes = require('./routes/quota.routes');
 const app = express();
 app.use(express.json());
 
-// Basic health check
+// Standard endpoints
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP', service: 'file-quota' });
+});
+
+app.get('/ready', (req, res) => {
+  res.status(200).json({ status: 'READY', service: 'file-quota' });
 });
 
 // App routes
