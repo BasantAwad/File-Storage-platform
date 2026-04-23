@@ -1,4 +1,3 @@
-
 # Nexus Distributed File Storage System
 
 ## Project Overview
@@ -56,21 +55,6 @@ This branch focuses on the complete implementation of two specific microservices
 - **Database Engine:** PostgreSQL
 - **Event Bus:** Apache Kafka + Zookeeper
 - **Containerization:** Docker & Docker Compose
-
-## API Standard Format
-
-All APIs follow this standard response structure:
-
-```json
-{
-  "success": true,
-  "data": { ... },
-  "meta": {
-    "service": "service-name",
-    "request_id": "uuid"
-  }
-}
-```
 
 ## Running the Services Locally
 
