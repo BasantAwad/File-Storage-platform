@@ -1,5 +1,25 @@
 # Nexus Distributed File Storage System
 
+**Services Included:** File Quota Service, Presigned URL Service
+
+## Architecture Overview
+
+This implements two independent microservices for the Nexus Distributed File Storage project, adhering to Phase 2 constraints.
+
+1. **File Quota Service (#35)**
+   - **Responsibility:** Validates user storage capacity before file uploads.
+   - **Pattern:** Layered Architecture (Controller, Service, Repository).
+   - **Communication:** Hybrid REST + Kafka (`quota.exceeded` topic).
+   - **Database:** Own private PostgreSQL DB (`quota_db`).
+
+2. **Presigned URL Service (#36)**
+   - **Responsibility:** Generates signed links for secure direct-to-storage-gateway access.
+   - **Pattern:** Layered Architecture (Controller, Service, Repository).
+   - **Communication:** Pure REST Only (No Kafka to ensure real-time security performance).
+   - **Database:** Own private PostgreSQL DB (`url_db`).
+
+# Nexus Distributed File Storage System
+
 ## Project Overview
 
 This repository contains the architecture and implementation for the **Nexus Distributed File Storage Platform**. It is a production-style, distributed system composed of **40 independent microservices** simulating a cloud object storage platform. The system handles chunk-based distributed storage, failure recovery, event-driven communication (via Apache Kafka), and follows strict independent database ownership rules per service.
