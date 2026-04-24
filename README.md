@@ -1,158 +1,100 @@
-# File Sharing Management (Two Services Only)
+# Nexus Distributed File Storage System
 
-## Overview
-This project contains exactly two MVC services:
-1. Download Orchestrator
-2. File Sharing
+## Project Overview
 
-Both services use Hybrid REST + Kafka, expose health/readiness endpoints, run with PM2, include tests, and are fully containerized.
+This repository contains the architecture and implementation for the **Nexus Distributed File Storage Platform**. It is a production-style, distributed system composed of **40 independent microservices** simulating a cloud object storage platform. The system handles chunk-based distributed storage, failure recovery, event-driven communication (via Apache Kafka), and follows strict independent database ownership rules per service.
 
-## Service 1: Download Orchestrator
-Endpoint:
-- GET /downloads/{file_id}/plan
+## Team Nexus - Microservices Distribution
 
-Behavior:
-- Returns a download plan.
-- Uses optional in-memory cache.
-- Integrates chunk catalog and chunk location data (service-layer integration).
-- Publishes Kafka event to topic `file.downloaded`.
-- Background consumer records each download as:
-  - billable/trackable analytics record
-  - audit log record
+The development is divided among the members of **Team Nexus**. Each member is responsible for specific microservices. The code for the other team members will be committed to a combined GitHub repository, but each under their respective branch.
 
-## Service 2: File Sharing
-Endpoints:
-- POST /shares
-- GET /shares/{token}
+- **Basant Awad - 22101405:** File Quota + Presigned URL
+- **Nadira Mohamed Elsirafy - 22101377:** File Registry + Upload Session
+- **Mohamed Alsariti - 22101901:** API Keys + Rate Limit
+- **Merna Adel Abdelrahman - 22101164:** Download Orchestrator + File Sharing
+- **Ahmed Adel Abdelrahman - 22101163:** Replication Worker + Rebalance
 
-Database schema (implemented):
-- shares(id PK via Mongo _id, file_id, token UNIQUE, expires_at)
+> **Note:** The remaining 30 microservices will be implemented later or will be integrated as placeholders until full deployment is completed.
 
-Behavior:
-- POST /shares returns a new share token.
-- Publishes Kafka event to topic `file.shared`.
-- Background consumer processes shared events and:
-  - simulates notification email to recipient (stored log)
-  - stores analytics log for share activity
+---
 
-## Architecture and Pattern (MVC + PM2)
-Both services use this structure:
+## Finished Services (This Branch)
 
-```
-service-name/
-  src/
-    config/
-    controllers/
-    models/
-    routes/
-    services/
-    docs/
-    utils/
-    app.js
-    server.js
-  tests/
-  Dockerfile
-  ecosystem.config.js
-  package.json
-```
+This branch focuses on the complete implementation of two specific microservices by **Basant Awad**, adhering strictly to the final project specifications.
 
-Runtime process manager:
-- PM2 (`pm2-runtime`) is used in Docker startup.
+### 1. File Quota Service (#35)
 
-## JSON Response Standard
-Success:
+- **Responsibility:** Manages per-user storage quota and validates uploads against remaining space.
+- **Architecture Pattern:** Layered Architecture (Controller, Service, Repository).
+- **Communication:** Hybrid REST + Kafka. It publishes to the `quota.exceeded` topic when a user hits their storage limit, allowing notification services to alert the user and upload sessions to be blocked.
+- **Database:** Owns private PostgreSQL DB (`quota_db`).
+- **Endpoints:**
+  - `GET /health` & `GET /ready`
+  - `GET /quota/{user_id}`
+  - `POST /quota/check`
+  - `POST /quota/update`
 
-```json
-{
-  "success": true,
-  "message": "...",
-  "data": {},
-  "timestamp": "..."
-}
-```
+### 2. Presigned URL Service (#36)
 
-Error:
+- **Responsibility:** Generates temporary presigned URLs for secure direct upload/download access.
+- **Architecture Pattern:** Layered Architecture (Controller, Service, Repository).
+- **Communication:** Pure REST Only. URL generation is a synchronous operation requiring immediate response, without any downstream reactive events.
+- **Database:** Owns private PostgreSQL DB (`url_db`).
+- **Endpoints:**
+  - `GET /health` & `GET /ready`
+  - `POST /urls/upload`
+  - `POST /urls/download`
 
-```json
-{
-  "success": false,
-  "message": "...",
-  "errors": [],
-  "timestamp": "..."
-}
-```
+---
 
-## Health Endpoints
-Each service exposes:
-- GET /health
-- GET /ready
+## Technical Stack
 
-## API Documentation
-Swagger UI is exposed at:
-- GET /docs
+- **Runtime Environment:** Node.js
+- **Framework:** Express.js
+- **Database Query Builder:** Knex.js
+- **Database Engine:** PostgreSQL
+- **Event Bus:** Apache Kafka + Zookeeper
+- **Containerization:** Docker & Docker Compose
 
-## Dockerization
-Implemented:
-- Correct Dockerfile for each service
-- Root `docker-compose.yml` with:
-  - download-orchestrator
-  - file-sharing
-  - kafka
-  - zookeeper
-  - mongo-download
-  - mongo-sharing
+## Running the Services Locally
 
-Run:
+1. Ensure Docker and Docker Compose are installed.
+2. At the root directory, run:
+   ```bash
+   docker-compose up --build -d
+   ```
+3. Zookeeper, Kafka, and the PostgreSQL databases will initialize. The node services will start automatically.
+4. Test the health checks:
+   ```bash
+   curl http://localhost:3001/health
+   curl http://localhost:3002/health
+   ```
 
-```bash
-docker compose up --build
-```
+---
 
-## Kubernetes
-Deployment files:
-- k8s/download-orchestrator.yaml
-- k8s/file-sharing.yaml
+## Merna Contribution (Download Orchestrator + File Sharing)
 
-Both deployments use:
-- replicas: 2
+This branch adds Merna Adel Abdelrahman services to the Team1 baseline:
 
-Apply:
+### 1. Download Orchestrator
+- Endpoint: GET /downloads/{file_id}/plan
+- Publishes Kafka event: file.downloaded
+- Background consumer stores:
+  - download analytics record
+  - download audit record
 
-```bash
-kubectl apply -f k8s/download-orchestrator.yaml
-kubectl apply -f k8s/file-sharing.yaml
-```
+### 2. File Sharing
+- Endpoints:
+  - POST /shares
+  - GET /shares/{token}
+- Publishes Kafka event: file.shared
+- Background consumer stores:
+  - notification email log
+  - share analytics log
 
-## Database Setup
-- Download Orchestrator DB: `download_orchestrator_db`
-- File Sharing DB: `file_sharing_db`
-
-No shared database is used.
-
-## Kafka Setup
-Topics:
-- `file.downloaded`
-- `file.shared`
-
-Producer/consumer logic is implemented in both services.
-
-## Local Setup and Tests
-Install dependencies:
-
-```bash
-cd services/download-orchestrator
-npm install
-
-cd ../file-sharing
-npm install
-```
-
-Run tests:
-
-```bash
-cd services/download-orchestrator
-npm test
-
-cd ../file-sharing
-npm test
-```
+### Added Infrastructure
+- Docker setup for both services
+- Kubernetes manifests:
+  - k8s/download-orchestrator.yaml
+  - k8s/file-sharing.yaml
+- Health/readiness endpoints and test setup for both services
