@@ -1,16 +1,18 @@
-version: "3.9"
+version: '3.8'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
+    image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    networks:
+      - nexus-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.6.1
+    image: confluentinc/cp-kafka:7.4.0
     depends_on:
       - zookeeper
     ports:
@@ -18,21 +20,90 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - nexus-network
+
+  db-file-quota:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: quota_db
+    ports:
+      - "5432:5432"
+    networks:
+      - nexus-network
+    volumes:
+      - quota-db-data:/var/lib/postgresql/data
+
+  db-presigned-url:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: url_db
+    ports:
+      - "5433:5432"
+    networks:
+      - nexus-network
+    volumes:
+      - url-db-data:/var/lib/postgresql/data
+
+  file-quota-service:
+    build:
+      context: ./file-quota-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=db-file-quota
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=quota_db
+      - KAFKA_BROKER=kafka:9092
+    depends_on:
+      - db-file-quota
+      - kafka
+    networks:
+      - nexus-network
+
+  presigned-url-service:
+    build:
+      context: ./presigned-url-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DB_HOST=db-presigned-url
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=url_db
+    depends_on:
+      - db-presigned-url
+    networks:
+      - nexus-network
 
   mongo-download:
     image: mongo:7
     ports:
       - "27021:27017"
+    networks:
+      - nexus-network
 
   mongo-sharing:
     image: mongo:7
     ports:
       - "27022:27017"
+    networks:
+      - nexus-network
 
   download-orchestrator:
     build: ./services/download-orchestrator
@@ -40,13 +111,15 @@ services:
       - kafka
       - mongo-download
     environment:
-      PORT: 3001
+      PORT: 3003
       MONGO_URI: mongodb://mongo-download:27017/download_orchestrator_db
-      KAFKA_BROKERS: kafka:29092
+      KAFKA_BROKERS: kafka:9092
       DOWNLOADED_TOPIC: file.downloaded
       DOWNLOAD_CONSUMER_GROUP: download-orchestrator-consumers
     ports:
-      - "3001:3001"
+      - "3003:3003"
+    networks:
+      - nexus-network
 
   file-sharing:
     build: ./services/file-sharing
@@ -54,10 +127,20 @@ services:
       - kafka
       - mongo-sharing
     environment:
-      PORT: 3002
+      PORT: 3004
       MONGO_URI: mongodb://mongo-sharing:27017/file_sharing_db
-      KAFKA_BROKERS: kafka:29092
+      KAFKA_BROKERS: kafka:9092
       SHARED_TOPIC: file.shared
       SHARE_CONSUMER_GROUP: file-sharing-consumers
     ports:
-      - "3002:3002"
+      - "3004:3004"
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    driver: bridge
+
+volumes:
+  quota-db-data:
+  url-db-data:

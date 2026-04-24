@@ -1,0 +1,22 @@
+{
+  "name": "file-quota-service",
+  "version": "1.0.0",
+  "description": "File Quota Service for Nexus",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "pm2-runtime start ecosystem.config.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "knex": "^3.0.1",
+    "pg": "^8.11.3",
+    "kafkajs": "^2.2.4",
+    "pm2": "^5.3.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
