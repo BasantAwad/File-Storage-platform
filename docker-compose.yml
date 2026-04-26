@@ -1,0 +1,149 @@
+version: '3.9'
+
+services:
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+  postgres-file-registry:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: file_registry_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_file_registry:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-upload-session:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: upload_session_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_upload_session:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Microservices ──────────────────────────────────────────────────────────
+
+  file-registry:
+    build:
+      context: ./file-registry
+      dockerfile: Dockerfile
+    ports:
+      - "3007:3007"
+    environment:
+      PORT: 3007
+      NODE_ENV: development
+      DB_HOST: postgres-file-registry
+      DB_PORT: 5432
+      DB_NAME: file_registry_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: file-registry
+      CHUNK_CATALOG_URL: http://chunk-catalog:3009
+      VERSIONING_URL: http://versioning:3013
+    depends_on:
+      postgres-file-registry:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    command: >
+      sh -c "node src/db/migrate.js && node src/index.js"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3007/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  upload-session:
+    build:
+      context: ./upload-session
+      dockerfile: Dockerfile
+    ports:
+      - "3008:3008"
+    environment:
+      PORT: 3008
+      NODE_ENV: development
+      DB_HOST: postgres-upload-session
+      DB_PORT: 5432
+      DB_NAME: upload_session_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: upload-session
+      FILE_REGISTRY_URL: http://file-registry:3007
+      CHUNK_CATALOG_URL: http://chunk-catalog:3009
+      SESSION_TTL_MINUTES: 60
+    depends_on:
+      postgres-upload-session:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      file-registry:
+        condition: service_healthy
+    command: >
+      sh -c "node src/db/migrate.js && node src/index.js"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3008/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+volumes:
+  pg_file_registry:
+  pg_upload_session:
