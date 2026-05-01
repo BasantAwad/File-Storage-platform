@@ -234,6 +234,35 @@ All endpoints follow this envelope:
 
 ---
 
+## Merna Contribution (Download Orchestrator + File Sharing)
+
+This branch adds Merna Adel Abdelrahman services to the Team1 baseline:
+
+### 1. Download Orchestrator
+- Endpoint: GET /downloads/{file_id}/plan
+- Publishes Kafka event: file.downloaded
+- Background consumer stores:
+  - download analytics record
+  - download audit record
+
+### 2. File Sharing
+- Endpoints:
+  - POST /shares
+  - GET /shares/{token}
+- Publishes Kafka event: file.shared
+- Background consumer stores:
+  - notification email log
+  - share analytics log
+
+### Added Infrastructure
+- Docker setup for both services
+- Kubernetes manifests:
+  - k8s/download-orchestrator.yaml
+  - k8s/file-sharing.yaml
+- Health/readiness endpoints and test setup for both services
+
+---
+
 ## Technical Stack
 
 | Component | Technology |
