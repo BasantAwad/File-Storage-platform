@@ -1,16 +1,21 @@
 # Nexus Distributed File Storage System
-## Mohamed Alsariti — 22101901 | API Keys + Rate Limit Services
+## Team Nexus — Microservices Distribution
 
-This branch implements two microservices as part of the Nexus Distributed File Storage Platform.
+This repository contains the integrated microservices for the Nexus Distributed File Storage Platform. It combines the core components developed by the team.
 
 ---
 
 ## Services Overview
 
-| Service | Port | Database | Pattern |
+| Service | Port | Database | Responsible Member |
 |---|---|---|---|
-| API Keys Service | 3005 | `api_keys_db` (PostgreSQL) | Layered + Kafka |
-| Rate Limit Service | 3006 | `rate_limit_db` (PostgreSQL) | Layered + Kafka |
+| File Quota Service | 3001 | `quota_db` (PostgreSQL) | Basant Awad |
+| Presigned URL Service | 3002 | `url_db` (PostgreSQL) | Basant Awad |
+| API Keys Service | 3005 | `api_keys_db` (PostgreSQL) | Mohamed Alsariti |
+| Rate Limit Service | 3006 | `rate_limit_db` (PostgreSQL) | Mohamed Alsariti |
+| File Registry | 3007 | `file_registry_db` (PostgreSQL) | Nadira Mohamed Elsirafy |
+| Upload Session | 3008 | `upload_session_db` (PostgreSQL) | Nadira Mohamed Elsirafy |
+| Distributed Services (Replication & Rebalance) | N/A | N/A | Ahmed Adel Abdelrahman |
 
 ---
 
@@ -174,19 +179,30 @@ docker-compose up --build -d
 This starts:
 - Zookeeper (port 2181)
 - Kafka (port 9092)
+- Kafka UI (port 8080)
+- `quota_db` PostgreSQL (port 5432)
+- `url_db` PostgreSQL (port 5433)
 - `api_keys_db` PostgreSQL (port 5435)
 - `rate_limit_db` PostgreSQL (port 5436)
+- `file_registry_db` PostgreSQL (port 5432)
+- `upload_session_db` PostgreSQL (port 5433)
+- `file-quota-service` (port 3001)
+- `presigned-url-service` (port 3002)
 - `api-keys-service` (port 3005)
 - `rate-limit-service` (port 3006)
+- `file-registry` (port 3007)
+- `upload-session` (port 3008)
 
 Database migrations run automatically on service startup.
 
 ### Health Checks
 ```bash
+curl http://localhost:3001/health
+curl http://localhost:3002/health
 curl http://localhost:3005/health
-curl http://localhost:3005/ready
 curl http://localhost:3006/health
-curl http://localhost:3006/ready
+curl http://localhost:3007/health
+curl http://localhost:3008/health
 ```
 
 ### Stop Services
