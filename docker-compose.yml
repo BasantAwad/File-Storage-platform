@@ -14,11 +14,13 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - 9092:9092
+      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -216,7 +218,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - 5432:5432
+      - "5432:5432"
+      - "5437:5432"
     volumes:
       - pg_file_registry:/var/lib/postgresql/data
     healthcheck:
@@ -235,7 +238,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - 5433:5432
+      - "5433:5432"
+      - "5438:5432"
     volumes:
       - pg_upload_session:/var/lib/postgresql/data
     healthcheck:
@@ -328,48 +332,49 @@ services:
       retries: 5
     networks:
       - nexus-network
-    mongo-download:
-      image: mongo:7
-      ports:
-        - 27021:27017
-      networks:
-        - nexus-network
-    mongo-sharing:
-      image: mongo:7
-      ports:
-        - 27022:27017
-      networks:
-        - nexus-network
-    download-orchestrator:
-      build: ./services/download-orchestrator
-      depends_on:
-        - kafka
-        - mongo-download
-      environment:
-        PORT: 3003
-        MONGO_URI: mongodb://mongo-download:27017/download_orchestrator_db
-        KAFKA_BROKERS: kafka:9092
-        DOWNLOADED_TOPIC: file.downloaded
-        DOWNLOAD_CONSUMER_GROUP: download-orchestrator-consumers
-      ports:
-        - 3003:3003
-      networks:
-        - nexus-network
-    file-sharing:
-      build: ./services/file-sharing
-      depends_on:
-        - kafka
-        - mongo-sharing
-      environment:
-        PORT: 3004
-        MONGO_URI: mongodb://mongo-sharing:27017/file_sharing_db
-        KAFKA_BROKERS: kafka:9092
-        SHARED_TOPIC: file.shared
-        SHARE_CONSUMER_GROUP: file-sharing-consumers
-      ports:
-        - 3004:3004
-      networks:
-        - nexus-network
+  mongo-download:
+    image: mongo:7
+    ports:
+      - "27021:27017"
+    networks:
+      - nexus-network
+  mongo-sharing:
+    image: mongo:7
+    ports:
+      - "27022:27017"
+    networks:
+      - nexus-network
+  download-orchestrator:
+    build: ./services/download-orchestrator
+    depends_on:
+      - kafka
+      - mongo-download
+    environment:
+      PORT: 3003
+      MONGO_URI: mongodb://mongo-download:27017/download_orchestrator_db
+      KAFKA_BROKERS: kafka:9092
+      DOWNLOADED_TOPIC: file.downloaded
+      DOWNLOAD_CONSUMER_GROUP: download-orchestrator-consumers
+    ports:
+      - "3003:3003"
+    networks:
+      - nexus-network
+  file-sharing:
+    build: ./services/file-sharing
+    depends_on:
+      - kafka
+      - mongo-sharing
+    environment:
+      PORT: 3004
+      MONGO_URI: mongodb://mongo-sharing:27017/file_sharing_db
+      KAFKA_BROKERS: kafka:9092
+      SHARED_TOPIC: file.shared
+      SHARE_CONSUMER_GROUP: file-sharing-consumers
+    ports:
+      - "3004:3004"
+    networks:
+      - nexus-network
+
 networks:
   nexus-network:
     driver: bridge

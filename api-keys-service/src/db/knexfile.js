@@ -10,7 +10,7 @@ module.exports = {
     database: process.env.DB_NAME || 'api_keys_db',
   },
   migrations: {
-    directory: './migrations',
+    directory: __dirname + '/migrations',
     tableName: 'knex_migrations',
   },
   pool: {
