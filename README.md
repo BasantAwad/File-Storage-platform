@@ -184,8 +184,8 @@ This starts:
 - `url_db` PostgreSQL (port 5433)
 - `api_keys_db` PostgreSQL (port 5435)
 - `rate_limit_db` PostgreSQL (port 5436)
-- `file_registry_db` PostgreSQL (port 5432)
-- `upload_session_db` PostgreSQL (port 5433)
+- `file_registry_db` PostgreSQL (port 5437)
+- `upload_session_db` PostgreSQL (port 5438)
 - `file-quota-service` (port 3001)
 - `presigned-url-service` (port 3002)
 - `api-keys-service` (port 3005)
@@ -196,6 +196,8 @@ This starts:
 Database migrations run automatically on service startup.
 
 ### Health Checks
+
+**For Bash / Linux / macOS:**
 ```bash
 curl http://localhost:3001/health
 curl http://localhost:3002/health
@@ -203,6 +205,49 @@ curl http://localhost:3005/health
 curl http://localhost:3006/health
 curl http://localhost:3007/health
 curl http://localhost:3008/health
+```
+
+**For Windows PowerShell:**
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3001/health"
+Invoke-RestMethod -Uri "http://localhost:3002/health"
+Invoke-RestMethod -Uri "http://localhost:3005/health"
+Invoke-RestMethod -Uri "http://localhost:3006/health"
+Invoke-RestMethod -Uri "http://localhost:3007/health"
+Invoke-RestMethod -Uri "http://localhost:3008/health"
+```
+
+**Example Successful Output:**
+```
+success data                                        meta
+------- ----                                        ----
+   True @{status=healthy; service=api-keys-service} @{service=api-keys-service; request_id=d8846b07...}
+```
+
+### End-to-End Workflow Tests (PowerShell)
+
+**1. Create a new API Key:**
+```powershell
+$body = @{ owner = "test-user-123"; scopes = @("read", "write") } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3005/keys" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
+```
+*Result:*
+```
+success data
+------- ----
+   True @{id=...; owner=test-user-123; key=nxs_...} 
+```
+
+**2. Check Rate Limit:**
+```powershell
+$rateLimitBody = @{ identity = "test-user-123" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3006/ratelimit/check" -Method POST -Headers @{"Content-Type"="application/json"} -Body $rateLimitBody
+```
+*Result:*
+```
+success data
+------- ----
+   True @{allowed=True; identity=test-user-123; limit_per_minute=60; current_count=1; remaining=59...} 
 ```
 
 ### Stop Services
