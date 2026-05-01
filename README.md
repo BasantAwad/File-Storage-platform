@@ -15,6 +15,8 @@ This repository contains the integrated microservices for the Nexus Distributed 
 | Rate Limit Service | 3006 | `rate_limit_db` (PostgreSQL) | Mohamed Alsariti |
 | File Registry | 3007 | `file_registry_db` (PostgreSQL) | Nadira Mohamed Elsirafy |
 | Upload Session | 3008 | `upload_session_db` (PostgreSQL) | Nadira Mohamed Elsirafy |
+| Download Orchestrator | 3003 | `download_orchestrator_db` (MongoDB) | Merna Adel Abdelrahman |
+| File Sharing | 3004 | `file_sharing_db` (MongoDB) | Merna Adel Abdelrahman |
 | Distributed Services (Replication & Rebalance) | N/A | N/A | Ahmed Adel Abdelrahman |
 
 ---
@@ -192,6 +194,10 @@ This starts:
 - `rate-limit-service` (port 3006)
 - `file-registry` (port 3007)
 - `upload-session` (port 3008)
+- `download-orchestrator` (port 3003)
+- `file-sharing` (port 3004)
+- `mongo-download` MongoDB (port 27021)
+- `mongo-sharing` MongoDB (port 27022)
 
 Database migrations run automatically on service startup.
 
@@ -201,6 +207,8 @@ Database migrations run automatically on service startup.
 ```bash
 curl http://localhost:3001/health
 curl http://localhost:3002/health
+curl http://localhost:3003/health
+curl http://localhost:3004/health
 curl http://localhost:3005/health
 curl http://localhost:3006/health
 curl http://localhost:3007/health
@@ -211,6 +219,8 @@ curl http://localhost:3008/health
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:3001/health"
 Invoke-RestMethod -Uri "http://localhost:3002/health"
+Invoke-RestMethod -Uri "http://localhost:3003/health"
+Invoke-RestMethod -Uri "http://localhost:3004/health"
 Invoke-RestMethod -Uri "http://localhost:3005/health"
 Invoke-RestMethod -Uri "http://localhost:3006/health"
 Invoke-RestMethod -Uri "http://localhost:3007/health"
@@ -276,6 +286,33 @@ All endpoints follow this envelope:
   }
 }
 ```
+
+---
+
+## Merna Contribution (Download Orchestrator + File Sharing)
+
+This branch adds Merna Adel Abdelrahman services to the Team1 baseline:
+
+### 1. Download Orchestrator
+- Endpoint: GET /downloads/{file_id}/plan
+- Publishes Kafka event: file.downloaded
+- Background consumer stores:
+  - download analytics record
+  - download audit record
+
+### 2. File Sharing
+- Endpoints:
+  - POST /shares
+  - GET /shares/{token}
+- Publishes Kafka event: file.shared
+- Background consumer stores:
+  - notification email log
+  - share analytics log
+
+### Added Infrastructure
+- Docker setup for both services
+- Kubernetes manifests in service directories (`k8s.yaml`)
+- Health/readiness endpoints and test setup for both services
 
 ---
 
