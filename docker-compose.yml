@@ -6,15 +6,16 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-    - 2181:2181
+      - 2181:2181
     networks:
-    - nexus-network
+      - nexus-network
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     depends_on:
-    - zookeeper
+      - zookeeper
     ports:
-    - 29092:29092
+      - "9092:9092"
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -26,15 +27,15 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     healthcheck:
       test:
-      - CMD
-      - kafka-broker-api-versions
-      - --bootstrap-server
-      - localhost:9092
+        - CMD
+        - kafka-broker-api-versions
+        - --bootstrap-server
+        - localhost:9092
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-    - nexus-network
+      - nexus-network
   db-file-quota:
     image: postgres:15-alpine
     environment:
@@ -42,11 +43,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: quota_db
     ports:
-    - 5432:5432
+      - 5432:5432
     networks:
-    - nexus-network
+      - nexus-network
     volumes:
-    - quota-db-data:/var/lib/postgresql/data
+      - quota-db-data:/var/lib/postgresql/data
   db-presigned-url:
     image: postgres:15-alpine
     environment:
@@ -54,47 +55,47 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: url_db
     ports:
-    - 5433:5432
+      - 5433:5432
     networks:
-    - nexus-network
+      - nexus-network
     volumes:
-    - url-db-data:/var/lib/postgresql/data
+      - url-db-data:/var/lib/postgresql/data
   file-quota-service:
     build:
       context: ./file-quota-service
     ports:
-    - 3001:3001
+      - 3001:3001
     environment:
-    - NODE_ENV=development
-    - PORT=3001
-    - DB_HOST=db-file-quota
-    - DB_PORT=5432
-    - DB_USER=postgres
-    - DB_PASSWORD=postgres
-    - DB_NAME=quota_db
-    - KAFKA_BROKER=kafka:9092
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=db-file-quota
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=quota_db
+      - KAFKA_BROKER=kafka:9092
     depends_on:
-    - db-file-quota
-    - kafka
+      - db-file-quota
+      - kafka
     networks:
-    - nexus-network
+      - nexus-network
   presigned-url-service:
     build:
       context: ./presigned-url-service
     ports:
-    - 3002:3002
+      - 3002:3002
     environment:
-    - NODE_ENV=development
-    - PORT=3002
-    - DB_HOST=db-presigned-url
-    - DB_PORT=5432
-    - DB_USER=postgres
-    - DB_PASSWORD=postgres
-    - DB_NAME=url_db
+      - NODE_ENV=development
+      - PORT=3002
+      - DB_HOST=db-presigned-url
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=url_db
     depends_on:
-    - db-presigned-url
+      - db-presigned-url
     networks:
-    - nexus-network
+      - nexus-network
   api_keys_db:
     image: postgres:15-alpine
     container_name: api_keys_db
@@ -103,15 +104,15 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: api_keys_db
     ports:
-    - 5435:5432
+      - 5435:5432
     volumes:
-    - api_keys_db_data:/var/lib/postgresql/data
+      - api_keys_db_data:/var/lib/postgresql/data
     networks:
-    - nexus-network
+      - nexus-network
     healthcheck:
       test:
-      - CMD-SHELL
-      - pg_isready -U postgres -d api_keys_db
+        - CMD-SHELL
+        - pg_isready -U postgres -d api_keys_db
       interval: 10s
       timeout: 5s
       retries: 5
@@ -123,15 +124,15 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: rate_limit_db
     ports:
-    - 5436:5432
+      - 5436:5432
     volumes:
-    - rate_limit_db_data:/var/lib/postgresql/data
+      - rate_limit_db_data:/var/lib/postgresql/data
     networks:
-    - nexus-network
+      - nexus-network
     healthcheck:
       test:
-      - CMD-SHELL
-      - pg_isready -U postgres -d rate_limit_db
+        - CMD-SHELL
+        - pg_isready -U postgres -d rate_limit_db
       interval: 10s
       timeout: 5s
       retries: 5
@@ -141,7 +142,7 @@ services:
       dockerfile: Dockerfile
     container_name: api-keys-service
     ports:
-    - 3005:3005
+      - 3005:3005
     environment:
       PORT: 3005
       DB_HOST: api_keys_db
@@ -157,12 +158,12 @@ services:
       kafka:
         condition: service_healthy
     networks:
-    - nexus-network
+      - nexus-network
     restart: unless-stopped
     healthcheck:
       test:
-      - CMD-SHELL
-      - wget -qO- http://localhost:3005/health || exit 1
+        - CMD-SHELL
+        - wget -qO- http://localhost:3005/health || exit 1
       interval: 15s
       timeout: 5s
       retries: 5
@@ -173,7 +174,7 @@ services:
       dockerfile: Dockerfile
     container_name: rate-limit-service
     ports:
-    - 3006:3006
+      - 3006:3006
     environment:
       PORT: 3006
       DB_HOST: rate_limit_db
@@ -189,12 +190,12 @@ services:
       kafka:
         condition: service_healthy
     networks:
-    - nexus-network
+      - nexus-network
     restart: unless-stopped
     healthcheck:
       test:
-      - CMD-SHELL
-      - wget -qO- http://localhost:3006/health || exit 1
+        - CMD-SHELL
+        - wget -qO- http://localhost:3006/health || exit 1
       interval: 15s
       timeout: 5s
       retries: 5
@@ -202,14 +203,14 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     depends_on:
-    - kafka
+      - kafka
     ports:
-    - 8080:8080
+      - 8080:8080
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
     networks:
-    - nexus-network
+      - nexus-network
   postgres-file-registry:
     image: postgres:15-alpine
     environment:
@@ -217,18 +218,19 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-    - 5437:5432
+      - "5432:5432"
+      - "5437:5432"
     volumes:
-    - pg_file_registry:/var/lib/postgresql/data
+      - pg_file_registry:/var/lib/postgresql/data
     healthcheck:
       test:
-      - CMD-SHELL
-      - pg_isready -U postgres
+        - CMD-SHELL
+        - pg_isready -U postgres
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-    - nexus-network
+      - nexus-network
   postgres-upload-session:
     image: postgres:15-alpine
     environment:
@@ -236,24 +238,25 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-    - 5438:5432
+      - "5433:5432"
+      - "5438:5432"
     volumes:
-    - pg_upload_session:/var/lib/postgresql/data
+      - pg_upload_session:/var/lib/postgresql/data
     healthcheck:
       test:
-      - CMD-SHELL
-      - pg_isready -U postgres
+        - CMD-SHELL
+        - pg_isready -U postgres
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-    - nexus-network
+      - nexus-network
   file-registry:
     build:
       context: ./file-registry
       dockerfile: Dockerfile
     ports:
-    - 3007:3007
+      - 3007:3007
     environment:
       PORT: 3007
       NODE_ENV: development
@@ -277,23 +280,22 @@ services:
     restart: unless-stopped
     healthcheck:
       test:
-      - CMD
-      - node
-      - -e
-      - 'require(''http'').get(''http://localhost:3007/health'', r => process.exit(r.statusCode
-        === 200 ? 0 : 1)).on(''error'', () => process.exit(1))'
+        - CMD
+        - node
+        - -e
+        - 'require(''http'').get(''http://localhost:3007/health'', r => process.exit(r.statusCode === 200 ? 0 : 1)).on(''error'', () => process.exit(1))'
       interval: 15s
       timeout: 5s
       start_period: 20s
       retries: 5
     networks:
-    - nexus-network
+      - nexus-network
   upload-session:
     build:
       context: ./upload-session
       dockerfile: Dockerfile
     ports:
-    - 3008:3008
+      - 3008:3008
     environment:
       PORT: 3008
       NODE_ENV: development
@@ -320,11 +322,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test:
-      - CMD
-      - node
-      - -e
-      - 'require(''http'').get(''http://localhost:3008/health'', r => process.exit(r.statusCode
-        === 200 ? 0 : 1)).on(''error'', () => process.exit(1))'
+        - CMD
+        - node
+        - -e
+        - 'require(''http'').get(''http://localhost:3008/health'', r => process.exit(r.statusCode === 200 ? 0 : 1)).on(''error'', () => process.exit(1))'
       interval: 15s
       timeout: 5s
       start_period: 20s
@@ -373,6 +374,7 @@ services:
       - "3004:3004"
     networks:
       - nexus-network
+
 networks:
   nexus-network:
     driver: bridge
