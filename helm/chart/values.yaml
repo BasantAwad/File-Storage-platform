@@ -1,0 +1,107 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Global Values (override with --set or -f custom-values.yaml)
+# ──────────────────────────────────────────────────────────────────────────────
+
+namespace: cse474-prod
+
+image:
+  registry: ghcr.io/basantawad/file-storage-platform
+  pullPolicy: IfNotPresent
+
+# ──────────────────────────────────────────────────────────────────────────────
+# File Quota Service (Basant)
+# ──────────────────────────────────────────────────────────────────────────────
+fileQuota:
+  enabled: true
+  image:
+    tag: latest
+  replicaCount: 2
+  port: 3001
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    nodeEnv: production
+    dbHost: db-file-quota
+    dbPort: "5432"
+    dbName: quota_db
+    kafkaBroker: kafka:9092
+    logLevel: info
+  secrets:
+    dbUser: postgres
+    dbPassword: postgres
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Presigned URL Service (Basant)
+# ──────────────────────────────────────────────────────────────────────────────
+presignedUrl:
+  enabled: true
+  image:
+    tag: latest
+  replicaCount: 2
+  port: 3002
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    nodeEnv: production
+    dbHost: db-presigned-url
+    dbPort: "5432"
+    dbName: url_db
+    storageGatewayUrl: "http://storage-gateway:9000"
+    logLevel: info
+  secrets:
+    dbUser: postgres
+    dbPassword: postgres
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Download Orchestrator Service
+# ──────────────────────────────────────────────────────────────────────────────
+downloadOrchestrator:
+  enabled: true
+  image:
+    tag: latest
+  replicaCount: 2
+  port: 3003
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# File Sharing Service
+# ──────────────────────────────────────────────────────────────────────────────
+fileSharing:
+  enabled: true
+  image:
+    tag: latest
+  replicaCount: 2
+  port: 3004
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ingress
+# ──────────────────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: nginx
+  host: api.cse474.local
+  tls: true
+  tlsSecret: cse474-tls
