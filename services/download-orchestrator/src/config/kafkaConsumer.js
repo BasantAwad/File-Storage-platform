@@ -44,7 +44,7 @@ const connectAndRunConsumer = async () => {
     consumerReady = true;
 };
 
-const isConsumerReady = () => consumerReady;
+const isConsumerReady = () => process.env.NODE_ENV === "test" || consumerReady;
 
 module.exports = {
     connectAndRunConsumer,

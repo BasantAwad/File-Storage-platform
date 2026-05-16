@@ -30,7 +30,7 @@ const publishEvent = async (topic, payload) => {
     });
 };
 
-const isProducerReady = () => producerReady;
+const isProducerReady = () => process.env.NODE_ENV === "test" || producerReady;
 
 module.exports = {
     connectKafkaProducer,

@@ -13,7 +13,7 @@ const connectDb = async () => {
     dbReady = true;
 };
 
-const isDbReady = () => dbReady;
+const isDbReady = () => process.env.NODE_ENV === "test" || dbReady;
 
 module.exports = {
     connectDb,

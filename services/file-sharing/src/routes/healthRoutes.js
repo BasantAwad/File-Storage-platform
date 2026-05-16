@@ -7,7 +7,13 @@ const { sendSuccess } = require("../utils/response");
 const router = express.Router();
 
 router.get("/health", (req, res) => {
-    return sendSuccess(res, "Service healthy", { service: "file-sharing" });
+    return res.status(200).json({
+        success: true,
+        message: "Service healthy",
+        service: "file-sharing",
+        data: { service: "file-sharing" },
+        timestamp: new Date().toISOString()
+    });
 });
 
 router.get("/ready", (req, res) => {
@@ -16,6 +22,7 @@ router.get("/ready", (req, res) => {
 
     return res.status(status).json({
         success: ready,
+        ready,
         message: ready ? "Service ready" : "Service not ready",
         data: {
             dbReady: isDbReady(),
