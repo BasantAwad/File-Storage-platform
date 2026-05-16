@@ -344,6 +344,9 @@ This branch adds Merna Adel Abdelrahman services to the Team1 baseline:
 ### Added Infrastructure
 
 - Docker setup for both services
+- Kubernetes manifests:
+  - k8s/download-orchestrator.yaml
+  - k8s/file-sharing.yaml
 - Kubernetes manifests in service directories (`k8s.yaml`)
 - Health/readiness endpoints and test setup for both services
 
