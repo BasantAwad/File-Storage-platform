@@ -331,7 +331,7 @@ services:
       start_period: 20s
       retries: 5
     networks:
-      - nexus-network
+    - nexus-network
   mongo-download:
     image: mongo:7
     ports:
@@ -345,7 +345,7 @@ services:
     networks:
       - nexus-network
   download-orchestrator:
-    build: ./services/download-orchestrator
+    build: ./download-orchestrator-service
     depends_on:
       - kafka
       - mongo-download
@@ -360,7 +360,7 @@ services:
     networks:
       - nexus-network
   file-sharing:
-    build: ./services/file-sharing
+    build: ./file-sharing-service
     depends_on:
       - kafka
       - mongo-sharing
