@@ -1,3 +1,4 @@
+require('./tracer');
 const app = require('./app');
 
 // Port is configured via environment variable or default to 3000
