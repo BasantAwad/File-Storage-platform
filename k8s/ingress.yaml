@@ -16,6 +16,8 @@ spec:
     - api.cse474.local
     - downloads.cse474.local
     - files.cse474.local
+    - quota.cse474.local
+    - urls.cse474.local
     secretName: cse474-tls
   rules:
   - host: downloads.cse474.local
@@ -38,6 +40,28 @@ spec:
             name: file-sharing
             port:
               number: 80
+  # Basant - File Quota Service
+  - host: quota.cse474.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: file-quota-service
+            port:
+              number: 80
+  # Basant - Presigned URL Service
+  - host: urls.cse474.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: presigned-url-service
+            port:
+              number: 80
   - host: api.cse474.local
     http:
       paths:
@@ -53,5 +77,19 @@ spec:
         backend:
           service:
             name: file-sharing
+            port:
+              number: 80
+      - path: /quota
+        pathType: Prefix
+        backend:
+          service:
+            name: file-quota-service
+            port:
+              number: 80
+      - path: /urls
+        pathType: Prefix
+        backend:
+          service:
+            name: presigned-url-service
             port:
               number: 80
