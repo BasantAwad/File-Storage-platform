@@ -4,15 +4,15 @@ class SessionRepository {
   /**
    * Create a new upload session
    */
-  async create({ file_id, owner_id, filename, total_size, total_chunks, expires_at }) {
-    const result = await db.query(
+  async create({ file_id, owner_id, filename, total_size, total_chunks, expires_at }) { // Inserts a new session record into the database
+    const result = await db.query( // Execute INSERT query
       `INSERT INTO upload_sessions
          (file_id, owner_id, filename, total_size, total_chunks, status, expires_at)
        VALUES ($1, $2, $3, $4, $5, 'active', $6)
-       RETURNING *`,
-      [file_id, owner_id, filename, total_size, total_chunks, expires_at]
+       RETURNING *`, // Return the inserted row
+      [file_id, owner_id, filename, total_size, total_chunks, expires_at] // Bind parameters
     );
-    return result.rows[0];
+    return result.rows[0]; // Return the first (and only) row
   }
 
   /**
@@ -29,15 +29,15 @@ class SessionRepository {
   /**
    * Mark session as completed
    */
-  async complete(id) {
-    const result = await db.query(
+  async complete(id) { // Updates a session's status to 'completed'
+    const result = await db.query( // Execute UPDATE query
       `UPDATE upload_sessions
        SET status = 'completed'
        WHERE id = $1 AND status = 'active'
-       RETURNING *`,
+       RETURNING *`, // Ensure it only updates if currently 'active', and return the updated row
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] || null; // Return updated row or null if not found/not active
   }
 
   /**

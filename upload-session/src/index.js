@@ -1,3 +1,4 @@
+require('./tracing');
 require('dotenv').config();
 const createApp = require('./app');
 const kafka = require('./kafka/producer');
@@ -31,7 +32,7 @@ const start = async () => {
     server.close(async () => {
       await kafka.disconnect();
       logger.info('Server closed. Exiting.');
-      process.exit(0);
+      process.exit(0); //added for docker stop issues 10 sec delay to prevent data loss
     });
     setTimeout(() => {
       logger.error('Forced shutdown after timeout');
@@ -39,7 +40,7 @@ const start = async () => {
     }, 10000);
   };
 
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGTERM', () => shutdown('SIGTERM')); 
   process.on('SIGINT', () => shutdown('SIGINT'));
 
   process.on('unhandledRejection', (reason) => {
@@ -52,7 +53,7 @@ const start = async () => {
   });
 };
 
-start().catch((err) => {
+start().catch((err) => { 
   logger.error('Failed to start Upload Session service', { error: err.message });
   process.exit(1);
 });
