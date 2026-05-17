@@ -1,0 +1,54 @@
+namespace: cse474-prod
+
+fileRegistry:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/username/file-registry
+    tag: latest
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env:
+    DB_HOST: "postgres"
+    DB_USER: "postgres"
+    KAFKA_BROKERS: "kafka:9092"
+    LOG_LEVEL: "info"
+
+uploadSession:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/username/upload-session
+    tag: latest
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env:
+    DB_HOST: "postgres"
+    DB_USER: "postgres"
+    KAFKA_BROKERS: "kafka:9092"
+    LOG_LEVEL: "info"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: api.cse474.local
+      paths:
+        - path: /files
+          pathType: Prefix
+          service:
+            name: file-registry-svc
+            port: 3007
+        - path: /uploads
+          pathType: Prefix
+          service:
+            name: upload-session-svc
+            port: 3008

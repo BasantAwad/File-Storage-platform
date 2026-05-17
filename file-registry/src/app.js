@@ -11,6 +11,10 @@ const fileRoutes = require('./routes/files');
 const response = require('./utils/response');
 const logger = require('./utils/logger');
 const db = require('./db');
+const asyncLocalStorage = require('./utils/context');
+const metrics = require('./utils/metrics');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./utils/swagger');
 
 const createApp = () => {
   const app = express();
@@ -22,9 +26,12 @@ const createApp = () => {
   app.use(express.urlencoded({ extended: true }));
 
   // Request ID propagation
-  app.use((req, _res, next) => {
-    req.requestId = req.headers['x-request-id'] || uuidv4();
-    next();
+  app.use((req, res, next) => {
+    const requestId = req.headers['x-request-id'] || uuidv4();
+    req.requestId = requestId;
+    asyncLocalStorage.run({ requestId }, () => {
+      next();
+    });
   });
 
   // HTTP request logging
@@ -33,6 +40,33 @@ const createApp = () => {
       stream: { write: (msg) => logger.http(msg.trim()) },
     })
   );
+
+  // Metrics middleware
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const route = req.route ? req.route.path : req.path;
+      
+      metrics.httpRequestDurationMicroseconds.labels(req.method, route, res.statusCode).observe(duration);
+      metrics.httpRequestCount.labels(req.method, route, res.statusCode).inc();
+      
+      if (res.statusCode >= 400) {
+        metrics.httpErrorCount.labels(req.method, route, res.statusCode).inc();
+      }
+    });
+    next();
+  });
+
+  // ── Metrics endpoint ───────────────────────────────────────────────────────
+  app.get('/metrics', async (req, res) => {
+    try {
+      res.set('Content-Type', metrics.register.contentType);
+      res.end(await metrics.register.metrics());
+    } catch (ex) {
+      res.status(500).end(ex.message);
+    }
+  });
 
   // ── Health & readiness ─────────────────────────────────────────────────────
   app.get('/health', (_req, res) => {
@@ -60,6 +94,9 @@ const createApp = () => {
 
   // ── API routes ─────────────────────────────────────────────────────────────
   app.use('/files', fileRoutes);
+
+  // ── Swagger docs ───────────────────────────────────────────────────────────
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
   // ── 404 handler ───────────────────────────────────────────────────────────
   app.use((req, res) => {

@@ -1,3 +1,4 @@
+require('./tracing');
 require('dotenv').config();
 const createApp = require('./app');
 const kafka = require('./kafka/producer');

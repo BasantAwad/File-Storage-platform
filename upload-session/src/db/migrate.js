@@ -38,16 +38,16 @@ const SQL = `
   FOR EACH ROW EXECUTE FUNCTION update_sessions_updated_at();
 `;
 
-const run = async () => {
+const run = async () => { // Function to run database migrations
   try {
-    logger.info('Running database migrations for upload-session...');
-    await db.query(SQL);
-    logger.info('Migration completed successfully.');
-    process.exit(0);
+    logger.info('Running database migrations for upload-session...'); // Log start of migration
+    await db.query(SQL); // Execute the SQL queries
+    logger.info('Migration completed successfully.'); // Log success
+    process.exit(0); // Exit process successfully after migration
   } catch (err) {
-    logger.error('Migration failed', { error: err.message });
-    process.exit(1);
+    logger.error('Migration failed', { error: err.message }); // Log failure details
+    process.exit(1); // Exit process with failure code
   }
 };
 
-run();
+run(); // Execute the migration function on script run
