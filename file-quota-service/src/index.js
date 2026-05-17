@@ -145,5 +145,3 @@ async function startServer() {
 }
 
 startServer().catch((err) => logger.error('Failed to start server', { error: err.message }));
-
-module.exports = app; // export for testing
