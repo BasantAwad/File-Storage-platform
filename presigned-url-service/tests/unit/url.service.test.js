@@ -57,7 +57,7 @@ describe('UrlService - createPresignedUrl', () => {
     const oneHourMs = 60 * 60 * 1000;
 
     expect(diffMs).toBeGreaterThanOrEqual(oneHourMs - 1000); // within 1 second tolerance
-    expect(diffMs).toBeLessThanOrEqual(oneHourMs + after - before + 1000);
+    expect(diffMs).toBeLessThanOrEqual(oneHourMs + (after - before) + 1000);
   });
 
   it('should save URL record to database (persistence)', async () => {

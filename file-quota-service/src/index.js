@@ -144,4 +144,9 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => logger.error('Failed to start server', { error: err.message }));
+// Only start the server when this file is run directly (not when required by tests)
+if (require.main === module) {
+  startServer().catch((err) => logger.error('Failed to start server', { error: err.message }));
+}
+
+module.exports = app; // export for testing
