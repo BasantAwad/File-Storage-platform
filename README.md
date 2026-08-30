@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/BasantAwad/BasantAwad/main/assets/basant-terminal-banner.png" alt="Terminal-inspired project banner" width="100%" />
+</p>
+
 # Nexus Distributed File Storage Platform
 
 A distributed file-storage platform built around event-driven services, secure file access, and asynchronous processing. The repository contains the platform services and supporting infrastructure for quota management, presigned URLs, file registration, upload sessions, sharing, and orchestration.
